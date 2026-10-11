@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Land Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#f7f5f0; --card:#fffefb; --side:#faf8f3;
+  --ink:#1c1917; --ink2:#44403c; --muted:#78716c; --faint:#a8a29e;
+  --line:#e8e2d6; --line2:#d8d0c0; --hover:#f3f0e9; --grid:#ece7dc;
+  --bronze:#b45309; --bronze-soft:#f7ede0; --bronze-deep:#8a3e06;
+  --bad:#b42318; --bad-soft:#fdeceb; --warn:#a15c07; --warn-soft:#fbf1df;
+  --good:#2f7a4a; --good-soft:#e9f4ec; --idle:#78716c; --idle-soft:#f0ede6;
+  /* chart marks: fixed status palette + categorical slots 1-3 (validated) */
+  --st-critical:#d03b3b; --st-warning:#fab219; --st-good:#0ca30c; --st-none:#d8d0c0;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --sans:'Comfortaa','Noto Sans Telugu',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --te:'Comfortaa','Noto Sans Telugu',sans-serif;
+  --shadow:0 1px 2px 0 rgb(28 25 23/.03),0 4px 20px -4px rgb(28 25 23/.08);
+  --shadow-pop:0 2px 6px 0 rgb(28 25 23/.08),0 24px 64px -12px rgb(28 25 23/.22);
+}
+*{box-sizing:border-box}
+html{-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--canvas);color:var(--ink);font:14px/1.5 var(--sans)}
+::selection{background:#f0e2ce}
+:focus-visible{outline:2px solid var(--bronze);outline-offset:2px;border-radius:4px}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--bronze)}
+svg.i{width:16px;height:16px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tnum{font-variant-numeric:tabular-nums}
+.te{font-family:var(--te)}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+
+/* shell */
+aside{position:fixed;inset:0 auto 0 0;width:240px;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:30}
+.brand{display:flex;align-items:center;gap:10px;padding:24px 20px 20px}
+.brand-mark{width:32px;height:32px;border-radius:11px;background:var(--ink);color:#fff;display:grid;place-items:center}
+.brand b{display:block;font-size:15px;font-weight:700}
+.brand small{display:block;font-size:11px;color:var(--muted);margin-top:-2px}
+nav{padding:0 12px}
+nav a,.side-link{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;color:var(--ink2);text-decoration:none;font-size:13px;font-weight:500;margin-bottom:2px}
+nav a svg,.side-link svg{color:var(--faint)}
+nav a:hover,.side-link:hover{background:var(--hover);color:var(--ink)}
+nav a.active,.side-link.active{background:var(--ink);color:#fff}
+nav a.active svg,.side-link.active svg{color:#fff}
+nav .count{margin-left:auto;font-size:11px;font-weight:700;padding:0 7px;border-radius:9px;background:var(--bad);color:#fff;line-height:18px}
+nav a.active .count{background:#fff;color:var(--ink)}
+.side-foot{margin-top:auto;padding:12px}
+.side-note{margin:8px 4px 4px;padding:12px;border-radius:12px;background:#f0ede6;font-size:11px;color:var(--muted);line-height:1.55}
+.side-note b{display:flex;align-items:center;gap:6px;color:var(--ink2);font-weight:600;margin-bottom:3px}
+.side-note svg{width:14px;height:14px;color:var(--good)}
+.wrap{padding-left:240px;min-height:100vh}
+header.top{position:sticky;top:0;z-index:20;height:56px;display:flex;align-items:center;gap:12px;padding:0 28px;background:rgb(247 245 240/.86);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+header.top .menu-btn{display:none}
+.crumb{font-size:12px;color:var(--muted)} .crumb b{color:var(--ink2);font-weight:600}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+main{padding:28px;max-width:1280px}
+
+/* atoms */
+.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:12px;border:1px solid transparent;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;background:none;transition:background .15s}
+.btn-ink{background:var(--ink);color:#fff}
+.btn-ink:hover{background:#3a3532}
+.btn-sec{background:#fff;color:var(--ink);border-color:var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04)}
+.btn-sec:hover{background:#faf9f6}
+.btn-ghost{color:var(--ink2)} .btn-ghost:hover{background:var(--hover)}
+.btn-danger{background:#fff;color:var(--bad);border-color:#f6cfcb}
+.btn-danger:hover{background:var(--bad-soft)}
+.btn-sm{height:30px;padding:0 11px;border-radius:9px;font-size:12px}
+.btn:disabled{opacity:.45;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:1px 9px;border-radius:999px;font-size:11px;font-weight:600;line-height:18px;border:1px solid;white-space:nowrap}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.attention{color:var(--bad);background:var(--bad-soft);border-color:#f6cfcb}
+.chip.error{color:var(--warn);background:var(--warn-soft);border-color:#f1dcb4}
+.chip.ok{color:var(--good);background:var(--good-soft);border-color:#cde6d5}
+.chip.pending,.chip.queued{color:var(--idle);background:var(--idle-soft);border-color:var(--line)}
+.chip.queued::before{animation:pulse 1.2s ease-in-out infinite}
+.chip.plain::before{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+h1.page{font:700 26px/1.25 var(--sans);letter-spacing:-.01em;margin:0}
+.page-sub{margin:6px 0 0;color:var(--muted);font-size:13px;max-width:760px}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:18px 20px 0}
+.card-h h2{font-size:14px;font-weight:700;margin:0}
+.card-h p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.card-h a{font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap}
+.card-b{padding:16px 20px 20px}
+.empty{padding:56px 24px;text-align:center;color:var(--muted)}
+.empty h3{font-size:18px;font-weight:700;color:var(--ink);margin:0 0 6px}
+.empty .ic{width:52px;height:52px;border-radius:16px;margin:0 auto 14px;display:grid;place-items:center;background:var(--bronze-soft);color:var(--bronze)}
+.empty .ic svg{width:22px;height:22px}
+.slim{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--bronze-soft);border:1px solid #efd9bb;color:var(--bronze-deep);font-size:12.5px;margin-bottom:18px}
+.slim a{margin-left:auto;font-weight:700}
+
+/* run pill */
+.run{display:flex;align-items:center;gap:10px;height:36px;padding:0 14px;border-radius:12px;background:#fff;border:1px solid var(--line);font-size:12px;color:var(--ink2)}
+.run .dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.run.on .dot{background:var(--bronze);animation:pulse 1.2s ease-in-out infinite}
+.bar{width:90px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--bronze);transition:width .4s}
+@keyframes pulse{50%{opacity:.35}}
+
+/* dashboard */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.kpi{padding:16px 18px;text-decoration:none;color:inherit;display:block}
+a.kpi:hover{border-color:var(--line2)}
+.kpi span{font-size:12px;color:var(--muted)}
+.kpi b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:6px;line-height:1.1}
+.kpi small{display:block;font-size:11.5px;color:var(--muted);margin-top:4px}
+.kpi.bad b{color:var(--bad)} .kpi.warn b{color:var(--warn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.grid2.wide-left{grid-template-columns:1.6fr 1fr}
+.full{margin-top:12px}
+.stack{display:flex;gap:2px;height:22px}
+.stack span{min-width:3px}
+.stack span:first-child{border-radius:4px 0 0 4px} .stack span:last-child{border-radius:0 4px 4px 0}
+.stack span:only-child{border-radius:4px}
+.stack.mini{height:10px;width:140px}
+.leg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 18px;margin-top:16px}
+.leg div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2)}
+.leg i{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.leg b{margin-left:auto;font-weight:700}
+.leg em{font-style:normal;color:var(--muted);min-width:38px;text-align:right}
+.health-num{font-size:13px;color:var(--muted);margin-bottom:12px}
+.health-num b{font-size:22px;color:var(--ink);font-weight:700;margin-right:4px}
+.hb{display:grid;grid-template-columns:150px 1fr 28px;align-items:center;gap:10px;padding:5px 0;font-size:12.5px}
+.hb .track{height:14px;position:relative}
+.hb .track span{position:absolute;left:0;top:0;bottom:0;background:var(--bronze);border-radius:0 4px 4px 0;min-width:3px}
+.hb b{text-align:right;font-weight:700}
+.hb.zero{color:var(--faint)} .hb.zero b{color:var(--faint);font-weight:500}
+.chart-leg{display:flex;gap:16px;font-size:12px;color:var(--ink2);margin-bottom:8px}
+.chart-leg span{display:flex;align-items:center;gap:6px}
+.chart-leg i{width:10px;height:10px;border-radius:3px}
+svg.chart{width:100%;height:auto;display:block;overflow:visible}
+svg.chart text{font-family:var(--sans);font-size:10px;fill:var(--muted)}
+details.tbl-view{margin-top:10px;font-size:12px}
+details.tbl-view summary{cursor:pointer;color:var(--muted)}
+.runs{list-style:none;margin:0;padding:0}
+.runs li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid #efeae0;font-size:12.5px}
+.runs li:first-child{border-top:0;padding-top:0}
+.runs b{font-weight:700} .runs span{color:var(--muted)}
+.list-row{display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:start;padding:11px 0;border-top:1px solid #efeae0;cursor:pointer;font-size:12.5px}
+.list-row:first-child{border-top:0;padding-top:0}
+.list-row:hover .sv{color:var(--bronze)}
+.list-row .sv{font-weight:700;font-size:14px}
+.list-row .loc{font-size:11.5px;color:var(--muted)}
+.list-row .why{color:var(--ink2)}
+
+/* tables */
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{height:38px;padding:0 14px;text-align:left;font-size:12px;font-weight:600;color:var(--muted);background:#faf8f3;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 14px;border-top:1px solid #efeae0;vertical-align:middle}
+tbody tr:first-child td{border-top:0}
+tr.click{cursor:pointer} tr.click:hover{background:#fbfaf6}
+td .sv{font-weight:700;font-size:14px}
+td.num,th.num{text-align:right}
+
+/* parcels */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.search{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:#fff;width:260px;color:var(--faint)}
+.search input{border:0;outline:0;background:none;flex:1;color:var(--ink);font-size:13px}
+.seg{display:inline-flex;padding:3px;border-radius:12px;background:#efebe3;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:5px 11px;border-radius:9px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.08)}
+.seg button span{color:var(--faint);margin-left:4px}
+select.sel{height:36px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:0 10px;font-size:12.5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 16px;font-size:12px;color:var(--muted)}
+.legend .chip{margin-right:6px}
+.group{margin-bottom:22px}
+.group-h{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:13px}
+.group-h b{font-weight:700} .group-h span{color:var(--muted);font-size:12px}
+.group-h .chips{margin-left:auto;display:flex;gap:6px}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.tile{position:relative;text-align:left;padding:14px 16px 12px 19px;cursor:pointer;overflow:hidden;border-radius:16px}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line2)}
+.tile.attention::before{background:var(--bad)} .tile.error::before{background:#d99a2b} .tile.ok::before{background:var(--good)}
+.tile.queued{opacity:.65}
+.tile:hover{border-color:var(--line2)}
+.tile .sv{font:700 24px/1.15 var(--sans);word-break:break-word}
+.tile .owner{font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px}
+.tile .meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
+.more{display:flex;justify-content:center;margin-top:8px}
+.ptable td:first-child{position:relative}
+.ptable tr.prow td:first-child::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--line2)}
+.ptable tr.attention td:first-child::before{background:var(--bad)} .ptable tr.error td:first-child::before{background:#d99a2b}
+.ptable tr.ok td:first-child::before{background:var(--good)}
+.ptable tr.queued td{opacity:.6}
+.ptable .owner-cell{max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptable .why-cell{font-size:12px;color:var(--ink2);min-width:180px;max-width:320px}
+
+/* alerts */
+.day{font-size:12px;font-weight:700;color:var(--ink2);margin:22px 0 8px}
+.day:first-child{margin-top:0}
+.ev{display:grid;grid-template-columns:12px 52px 84px 1fr auto;gap:12px;padding:12px 18px;border-top:1px solid #efeae0;align-items:start;font-size:13px}
+.ev:first-child{border-top:0}
+.ev .nd{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--bronze)}
+.ev.seen .nd{background:transparent}
+.ev time{color:var(--muted);font-size:12px;padding-top:2px}
+.ev .who{font-weight:700;cursor:pointer} .ev .who:hover{color:var(--bronze)}
+.ev .msg{color:var(--ink2);margin-top:2px;word-break:break-word}
+.ev.seen .who,.ev.seen .msg{color:var(--muted)}
+.kind{font-size:11px;font-weight:700;padding:2px 8px;border-radius:7px;text-align:center}
+.kind.CHANGE{background:#e6effb;color:#1c5cab}
+.kind.ISSUE{background:#fdeee6;color:#b4410c}
+.kind.ERROR{background:var(--warn-soft);color:var(--warn)}
+.kind.BASELINE{background:var(--idle-soft);color:var(--idle)}
+.check-new{display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgb(28 25 23/.28);backdrop-filter:blur(2px);z-index:40;display:none}
+.scrim.on{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--card);box-shadow:var(--shadow-pop);z-index:41;overflow-y:auto;transform:translateX(100%);transition:transform .25s ease-out}
+.drawer.open{transform:none}
+.dr-head{padding:22px 24px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--card);z-index:1}
+.dr-head .x{position:absolute;right:16px;top:16px}
+.dr-head .sv{font:700 30px/1.1 var(--sans);margin:4px 0 8px}
+.dr-sec{padding:18px 24px;border-bottom:1px solid var(--line)}
+.dr-sec h3{font-size:12.5px;font-weight:700;color:var(--ink2);margin:0 0 10px}
+.check{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:7px 0}
+.check .mk{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700}
+.mk.ok{background:var(--good-soft);color:var(--good)} .mk.bad{background:var(--bad-soft);color:var(--bad)} .mk.na{background:var(--idle-soft);color:var(--idle)}
+.check b{font-weight:600;display:block}
+.cmp{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:12.5px;color:var(--muted);margin-top:3px}
+.cmp span:nth-child(even){color:var(--ink2)}
+dl.kv{display:grid;grid-template-columns:minmax(120px,40%) 1fr;margin:0;font-size:13px}
+dl.kv dt,dl.kv dd{padding:7px 0;border-top:1px solid #efeae0;margin:0}
+dl.kv dt{color:var(--muted);padding-right:12px}
+dl.kv dt:first-of-type,dl.kv dd:first-of-type{border-top:0}
+.hist{list-style:none;margin:0;padding:0;font-size:13px}
+.hist li{position:relative;padding:0 0 14px 18px;border-left:1px solid var(--line);margin-left:4px}
+.hist li::before{content:"";position:absolute;left:-5px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--card);border:2px solid var(--line2)}
+.hist li.CHANGE::before,.hist li.ISSUE::before{border-color:var(--bad)} .hist li.ERROR::before{border-color:#d99a2b}
+.hist time{display:block;font-size:11.5px;color:var(--muted)}
+.err-box{padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px}
+
+/* settings */
+.subnav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;position:sticky;top:56px;background:var(--canvas);padding:10px 0;z-index:5}
+.subnav a{padding:6px 12px;border-radius:10px;font-size:12px;font-weight:600;color:var(--ink2);text-decoration:none;border:1px solid var(--line);background:#fff}
+.subnav a:hover{border-color:var(--line2)}
+.set-grid{display:grid;grid-template-columns:240px 1fr;gap:32px;padding:26px 0;border-top:1px solid var(--line);scroll-margin-top:110px}
+.set-grid:first-of-type{border-top:0}
+.set-grid h2{font-size:14px;font-weight:700;margin:0 0 4px}
+.set-grid > div:first-child p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6}
+.set-body{padding:20px}
+.drop{border:1.5px dashed var(--line2);border-radius:16px;padding:28px 20px;text-align:center;background:#fbfaf6;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--bronze);background:var(--bronze-soft)}
+.drop .ic{width:44px;height:44px;border-radius:14px;margin:0 auto 12px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);color:var(--bronze)}
+.drop .ic svg{width:20px;height:20px}
+.drop b{display:block;font-size:14px;font-weight:700}
+.drop span{font-size:12.5px;color:var(--muted)}
+.sub-h{font-size:12.5px;font-weight:700;color:var(--ink2);margin:22px 0 8px}
+.path{font-size:12px;color:var(--muted);word-break:break-all}
+.store{display:grid;grid-template-columns:1fr auto;gap:4px 16px;padding:14px 0;border-top:1px solid #efeae0;align-items:center}
+.store:first-of-type{border-top:0;padding-top:0}
+.store b{font-weight:700;font-size:13px}
+.store .note{font-size:12px;color:var(--ink2)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form .full{grid-column:1/-1}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink2)}
+label.f input,label.f select{height:36px;padding:0 11px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:400;outline:none}
+label.f input:focus,label.f select:focus{border-color:var(--bronze);box-shadow:0 0 0 3px rgb(180 83 9/.12)}
+label.f small{font-weight:400;color:var(--muted)}
+.row-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px}
+.switch{display:flex;align-items:center;gap:12px;font-size:13px;cursor:pointer}
+.switch input{position:absolute;opacity:0}
+.switch i{width:38px;height:22px;border-radius:11px;background:var(--line2);position:relative;transition:background .15s;flex-shrink:0}
+.switch i::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.2);transition:transform .15s}
+.switch input:checked+i{background:var(--ink)}
+.switch input:checked+i::after{transform:translateX(16px)}
+.switch input:focus-visible+i{outline:2px solid var(--bronze);outline-offset:2px}
+.presets{display:flex;gap:6px;margin-bottom:14px}
+.status-line{margin-bottom:14px}
+details.help-cols{margin-top:16px;font-size:12.5px}
+details.help-cols summary{cursor:pointer;font-weight:600;color:var(--ink2)}
+details.help-cols table{margin-top:10px}
+.danger{margin-top:18px;padding:14px 16px;border-radius:12px;border:1px solid #f6cfcb;background:#fffaf9;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.danger div{flex:1;min-width:220px;font-size:12.5px;color:var(--ink2)}
+.danger b{display:block;color:var(--bad);font-weight:700}
+
+/* land lists */
+.lists{display:flex;flex-direction:column;gap:12px}
+.list-card{padding:0;overflow:hidden}
+.lc-head{display:flex;align-items:center;gap:14px;padding:16px 20px}
+.lc-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--idle-soft);color:var(--idle);flex-shrink:0}
+.lc-ic.on{background:var(--good-soft);color:var(--good)}
+.lc-main{flex:1;min-width:0}
+.lc-main b{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lc-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.lc-act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.versions{border-top:1px solid var(--line);background:#fbfaf6}
+.versions summary{padding:10px 20px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer}
+.versions table{background:var(--card)}
+.drop.compact{display:flex;align-items:center;gap:16px;text-align:left;padding:18px 20px}
+.drop.compact .ic{margin:0}
+.back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;text-decoration:none;margin-bottom:12px}
+.issues{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink2)} .issues li{margin:3px 0}
+.diffbox{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.diffbox h4{margin:0 0 6px;font-size:12.5px} .diffbox div{font-size:12px;color:var(--ink2);max-height:160px;overflow:auto}
+
+/* help */
+.help .card{padding:22px 24px;margin-top:14px}
+.help h2{font-size:15px;font-weight:700;margin:0 0 10px}
+.help p,.help li{font-size:13.5px;color:var(--ink2);max-width:760px}
+.help ul{margin:0;padding-left:18px} .help li{margin:4px 0}
+.help dl{display:grid;grid-template-columns:150px 1fr;gap:10px 16px;margin:0;font-size:13.5px}
+.help dt{font-weight:700} .help dd{margin:0;color:var(--ink2)}
+
+/* tooltip & toast */
+.tip{position:fixed;z-index:70;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;padding:6px 9px;border-radius:8px;opacity:0;transition:opacity .1s;max-width:260px;box-shadow:var(--shadow-pop)}
+.toasts{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 16px;border-radius:12px;background:var(--ink);color:#fff;font-size:13px;box-shadow:var(--shadow-pop);max-width:380px;animation:tin .2s ease-out}
+.toast.bad{background:var(--bad)}
+@keyframes tin{from{opacity:0;transform:translateY(6px)}}
+
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:1023px){
+  aside{transform:translateX(-100%);transition:transform .2s;box-shadow:var(--shadow-pop)}
+  aside.open{transform:none}
+  .wrap{padding-left:0}
+  header.top .menu-btn{display:inline-flex}
+  header.top{padding:0 16px}
+  main{padding:20px 16px}
+  .set-grid{grid-template-columns:1fr;gap:12px}
+  .grid2,.grid2.wide-left{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .kpis{grid-template-columns:1fr 1fr}
+  .crumb,.run .bar,#btnReport span{display:none}
+  .form{grid-template-columns:1fr}
+  .ev{grid-template-columns:12px 1fr;gap:4px 10px}
+  .ev time,.ev .kind{grid-column:2;justify-self:start}
+  .search{width:100%}
+  .hb{grid-template-columns:110px 1fr 24px}
+  .list-row{grid-template-columns:1fr}
+  .leg{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-set" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+  <symbol id="i-run" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</svg>
+
+<aside id="side">
+  <div class="brand">
+    <span class="brand-mark"><svg class="i"><use href="#i-map"/></svg></span>
+    <div><b>Land Monitor</b><small>Bhu Bharati, Telangana</small></div>
+  </div>
+  <nav id="nav">
+    <a href="#overview" data-v="overview"><svg class="i"><use href="#i-dash"/></svg>Overview</a>
+    <a href="#parcels" data-v="parcels"><svg class="i"><use href="#i-map"/></svg>Parcels</a>
+    <a href="#alerts" data-v="alerts"><svg class="i"><use href="#i-bell"/></svg>Alerts<span class="count" id="navAlerts" hidden></span></a>
+    <a href="#lists" data-v="lists"><svg class="i"><use href="#i-sheet"/></svg>Land lists</a>
+    <a href="#settings" data-v="settings"><svg class="i"><use href="#i-set"/></svg>Settings</a>
+  </nav>
+  <div class="side-foot">
+    <a class="side-link" href="#help" data-v="help" id="helpLink"><svg class="i"><use href="#i-info"/></svg>Help</a>
+    <div class="side-note"><b><svg class="i"><use href="#i-shield"/></svg>Runs on this computer</b>Sheets, results and history stay in this folder. Only alert emails leave it.</div>
+  </div>
+</aside>
+
+<div class="wrap">
+  <header class="top">
+    <button class="btn btn-ghost btn-sm menu-btn" onclick="side.classList.toggle('open')" aria-label="Open navigation"><svg class="i"><use href="#i-menu"/></svg></button>
+    <div class="crumb">Land Monitor / <b id="crumb">Overview</b></div>
+    <div class="top-right">
+      <div class="run" id="run"><span class="dot"></span><span id="runText">Idle</span><span class="bar" id="runBar" hidden><i></i></span></div>
+      <a class="btn btn-sec" id="btnReport" href="/download/report" title="Download the Excel report"><svg class="i"><use href="#i-down"/></svg><span>Report</span></a>
+      <button class="btn btn-ink" id="btnRun" onclick="S && S.running ? stopNow() : runNow()"><svg class="i"><use href="#i-run"/></svg>Check now</button>
+    </div>
+  </header>
+  <main id="view"></main>
+</div>
+
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Parcel details"></div>
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<div class="toasts" id="toasts"></div>
+<div class="tip" id="tip"></div>
+<input type="file" id="filePick" accept=".xlsx" hidden>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon = n => `<svg class="i"><use href="#i-${n}"/></svg>`;
+const LABEL = {attention: 'Needs attention', error: 'Check failed', ok: 'All clear', pending: 'Not checked yet', queued: 'In queue'};
+const STATUS_COLOR = {attention: 'var(--st-critical)', error: 'var(--st-warning)', ok: 'var(--st-good)', pending: 'var(--st-none)'};
+const KIND = {CHANGE: 'Changed', ISSUE: 'Issue', ERROR: 'Failed'};
+const PAGE = 120;
+let S = null, view = 'overview', anchor = null, openKey = null, cfgLoaded = false;
+let pf = {q: '', state: 'all', group: 'village', shown: PAGE};      // parcels page
+let af = {kind: '', q: '', onlyNew: false, items: [], total: 0, ver: null};       // alerts page
+let villagesAll = false, sheetFile = null, lf = {q: '', shown: 100};
+
+// ---------- formatting ----------
+function fmtExtent(v) {                       // site "2.1525" -> "2 ac 15.25 gts"
+  const m = /^(\d+)(?:\.(\d+))?/.exec(v || ''); if (!m) return '';
+  const d = (m[2] || '').padEnd(4, '0'); return `${+m[1]} ac ${parseFloat(d.slice(0, 2) + '.' + d.slice(2))} gts`;
+}
+const fmtGuntas = g => `${Math.floor(g / 40).toLocaleString()} ac ${+(g % 40).toFixed(2)} gts`;
+const fmtExpected = p => (p.acres !== '' || p.guntas !== '') ? `${+(p.acres || 0)} ac ${+(p.guntas || 0)} gts` : '';
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const today = () => ymd(new Date()), yday = () => ymd(new Date(Date.now() - 864e5));
+function when(ts) {
+  if (!ts) return 'never';
+  const [d, t] = ts.split(' '), hm = t.slice(0, 5);
+  if (d === today()) return `today ${hm}`;
+  if (d === yday()) return `yesterday ${hm}`;
+  return `${new Date(d + 'T00:00').toLocaleDateString(undefined, {day: 'numeric', month: 'short'})} ${hm}`;
+}
+function dayLabel(d) {
+  if (d === today()) return 'Today'; if (d === yday()) return 'Yesterday';
+  return new Date(d + 'T00:00').toLocaleDateString(undefined, {weekday: 'long', day: 'numeric', month: 'long'});
+}
+const dur = s => s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round(s % 3600 / 60)}m` : s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.round(s)}s`;
+const plural = (n, w) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`;
+function nextRun() {
+  const s = S.schedule || {}; if (!s.enabled || !(s.times || []).length) return null;
+  const now = new Date().toTimeString().slice(0, 5), ts = [...s.times].sort(), t = ts.find(x => x > now);
+  return t ? `today at ${t}` : `tomorrow at ${ts[0]}`;
+}
+function human(m) {
+  const first = s => s.split(' / ')[0]; let r;
+  if ((r = /^(Owner|Extent) Check: '.*?' -> '(MISMATCH: .*)'$/s.exec(m))) return human(`${r[1]} Check: ${r[2]}`);
+  if ((r = /^(Owner|Extent) Check: '.*?' -> 'OK'$/s.exec(m))) return `${r[1]} now matches your sheet`;
+  if ((r = /^Owner Check: MISMATCH: expected '(.*)', site '(.*)'$/s.exec(m))) return `Owner differs from your sheet. Expected ${r[1]}, Bhu Bharati shows ${first(r[2])}`;
+  if ((r = /^Extent Check: MISMATCH: expected (.*?), site (.*)$/s.exec(m))) return `Extent differs from your sheet. Expected ${r[1]}, Bhu Bharati shows ${r[2]}`;
+  if ((r = /^Flags: '(.*)' -> '(.*)'$/s.exec(m))) return r[2] === 'None' ? `Warning cleared: ${r[1]}` : `New warning on the record: ${r[2]}`;
+  if ((r = /^Flags: (.*)$/s.exec(m))) return `Warning on the record: ${r[1]}`;
+  if ((r = /^(.*?): '(.*)' -> '(.*)'$/s.exec(m))) return `${r[1]} changed from "${r[2] || 'blank'}" to "${r[3] || 'blank'}"`;
+  return m;
+}
+function reasons(p) {
+  const r = [];
+  if (p.flags && p.flags !== 'None') r.push(...p.flags.split('; '));
+  if (p.owner_check.startsWith('MISMATCH')) r.push(`Owner differs: expected ${p.owner}, site shows ${p.site_owner}`);
+  if (p.extent_check.startsWith('MISMATCH')) r.push(`Extent differs: expected ${fmtExpected(p)}, site shows ${fmtExtent(p.site_extent)}`);
+  if (p.fails) r.push(`Check failed: ${p.last_error || ''}`);
+  return r;
+}
+function live(p) {
+  if (!S.running || (S.run_keys && !S.run_keys.includes(p.key))) return p.state;
+  return !p.last_checked || p.last_checked < S.run_started ? 'queued' : p.state;
+}
+const parcelName = k => { const p = S.parcels.find(p => p.key === k); return p ? `${p.survey}, ${p.village}` : k.split(' / ').slice(2).reverse().join(', '); };
+const openAttr = k => `data-k="${esc(k)}" onclick="openDrawer(this.dataset.k)"`;
+
+// ---------- charts ----------
+function healthCard(P) {
+  const n = P.length, order = ['attention', 'error', 'ok', 'pending'];
+  const c = Object.fromEntries(order.map(k => [k, P.filter(p => p.state === k).length]));
+  const pct = v => n ? Math.round(v / n * 100) + '%' : '0%';
+  return `<div class="card"><div class="card-h"><div><h2>Parcel health</h2><p>Status of every parcel after its latest check</p></div><a href="#parcels">All parcels</a></div>
+    <div class="card-b"><div class="health-num"><b>${c.ok.toLocaleString()}</b>of ${n.toLocaleString()} all clear</div>
+      <div class="stack" role="img" aria-label="${order.map(k => `${LABEL[k]} ${c[k]}`).join(', ')}">${order.filter(k => c[k]).map(k =>
+        `<span style="flex:${c[k]};background:${STATUS_COLOR[k]}" data-tip="${LABEL[k]}: ${c[k]} (${pct(c[k])})"></span>`).join('')}</div>
+      <div class="leg">${order.map(k => `<div><i style="background:${STATUS_COLOR[k]}"></i>${LABEL[k]}<b class="tnum">${c[k].toLocaleString()}</b><em class="tnum">${pct(c[k])}</em></div>`).join('')}</div>
+    </div></div>`;
+}
+function warningsCard(W) {
+  const max = Math.max(1, ...W.map(w => w[1])), sorted = [...W].sort((a, b) => b[1] - a[1]);
+  return `<div class="card"><div class="card-h"><div><h2>Warnings found</h2><p>Parcels with each warning right now</p></div><a href="#parcels/attention">See parcels</a></div>
+    <div class="card-b">${sorted.map(([k, v]) => `<div class="hb ${v ? '' : 'zero'}" data-tip="${esc(k)}: ${plural(v, 'parcel')}"><span>${esc(k)}</span>
+      <div class="track">${v ? `<span style="width:${v / max * 100}%"></span>` : ''}</div><b class="tnum">${v}</b></div>`).join('')}</div></div>`;
+}
+function niceMax(v) { if (v <= 4) return 4; const p = 10 ** Math.floor(Math.log10(v)), f = v / p; return (f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+function alertsChartCard(daily) {
+  const days = [...Array(30)].map((_, i) => ymd(new Date(Date.now() - (29 - i) * 864e5)));
+  const series = [['CHANGE', 'Changes', 'var(--s1)'], ['ISSUE', 'Issues', 'var(--s2)'], ['ERROR', 'Failures', 'var(--s3)']];
+  const tot = d => series.reduce((a, [k]) => a + ((daily[d] || {})[k] || 0), 0);
+  const total = days.reduce((a, d) => a + tot(d), 0);
+  const W = 600, H = 170, L = 26, B = 22, T = 6, band = (W - L) / 30, bw = Math.min(14, band - 4);
+  const ymax = niceMax(Math.max(...days.map(tot))), y = v => H - B - (v / ymax) * (H - B - T);
+  const ticks = [0, ymax / 2, ymax];
+  let svg = ticks.map(t => `<line x1="${L}" x2="${W}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)" stroke-width="1"/><text x="${L - 6}" y="${y(t) + 3}" text-anchor="end">${t}</text>`).join('');
+  days.forEach((d, i) => {
+    const x = L + i * band + (band - bw) / 2; let base = 0;
+    const segs = series.map(([k, , c]) => [((daily[d] || {})[k] || 0), c]).filter(s => s[0]);
+    segs.forEach(([v, c], j) => {
+      const top = j === segs.length - 1, y0 = y(base), y1 = y(base + v), h = Math.max(1, y0 - y1 - (j ? 2 : 0));
+      svg += top ? `<path d="M${x},${y1 + h} V${y1 + 4} Q${x},${y1} ${x + 4},${y1} H${x + bw - 4} Q${x + bw},${y1} ${x + bw},${y1 + 4} V${y1 + h} Z" fill="${c}"/>`
+                 : `<rect x="${x}" y="${y1}" width="${bw}" height="${h}" fill="${c}"/>`;
+      base += v;
+    });
+    const tipTxt = `${new Date(d + 'T00:00').toLocaleDateString(undefined, {day: 'numeric', month: 'short'})}: ` + series.map(([k, l]) => `${(daily[d] || {})[k] || 0} ${l.toLowerCase()}`).join(', ');
+    svg += `<rect x="${L + i * band}" y="${T}" width="${band}" height="${H - B - T}" fill="transparent" data-tip="${tipTxt}"/>`;
+    if (i % 7 === 1 || i === 29) svg += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${i === 29 ? 'Today' : new Date(d + 'T00:00').toLocaleDateString(undefined, {day: 'numeric', month: 'short'})}</text>`;
+  });
+  svg += `<line x1="${L}" x2="${W}" y1="${H - B}" y2="${H - B}" stroke="var(--line2)" stroke-width="1"/>`;
+  const rows = days.filter(d => tot(d));
+  return `<div class="card"><div class="card-h"><div><h2>Alerts, last 30 days</h2><p>${total ? plural(total, 'alert') + ' in total' : 'No alerts in the last 30 days'}</p></div><a href="#alerts">All alerts</a></div>
+    <div class="card-b"><div class="chart-leg">${series.map(([, l, c]) => `<span><i style="background:${c}"></i>${l}</span>`).join('')}</div>
+      <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Alerts per day for the last 30 days">${svg}</svg>
+      ${rows.length ? `<details class="tbl-view"><summary>Show as table</summary><table><thead><tr><th>Day</th>${series.map(s => `<th class="num">${s[1]}</th>`).join('')}</tr></thead><tbody>
+        ${rows.map(d => `<tr><td>${dayLabel(d)}</td>${series.map(([k]) => `<td class="num tnum">${(daily[d] || {})[k] || 0}</td>`).join('')}</tr>`).join('')}</tbody></table></details>` : ''}
+    </div></div>`;
+}
+function runsCard(runs) {
+  return `<div class="card"><div class="card-h"><div><h2>Recent checks</h2><p>Each run of Check now or the schedule</p></div></div>
+    <div class="card-b">${runs.length ? `<ul class="runs">${runs.slice(0, 6).map(r => `<li><b>${when(r.started)}</b><span class="tnum">${dur(r.seconds)}</span>
+      <span>${plural(r.total, 'parcel')} checked${r.failed ? `, ${r.failed} failed` : ''}</span><span>${plural(r.alerts, 'alert')}</span></li>`).join('')}</ul>`
+      : '<span class="muted">No checks yet.</span>'}</div></div>`;
+}
+function villagesCard(P) {
+  const g = {};
+  P.forEach(p => { const k = `${p.village}|${p.mandal}`; (g[k] ||= {village: p.village, mandal: p.mandal, list: []}).list.push(p); });
+  const rows = Object.values(g).map(v => ({...v, att: v.list.filter(p => p.state === 'attention').length,
+    err: v.list.filter(p => p.state === 'error').length, area: v.list.reduce((a, p) => a + p.extent_guntas, 0)}))
+    .sort((a, b) => b.att - a.att || b.err - a.err || b.list.length - a.list.length);
+  const shown = villagesAll ? rows : rows.slice(0, 10);
+  const mini = list => { const c = ['attention', 'error', 'ok', 'pending'].map(k => [k, list.filter(p => p.state === k).length]).filter(x => x[1]);
+    return `<div class="stack mini">${c.map(([k, v]) => `<span style="flex:${v};background:${STATUS_COLOR[k]}" data-tip="${LABEL[k]}: ${v}"></span>`).join('')}</div>`; };
+  return `<div class="card full"><div class="card-h"><div><h2>By village</h2><p>${plural(rows.length, 'village')}, most problems first. Click a village to see its parcels.</p></div></div>
+    <div class="card-b tbl" style="padding-top:10px"><table><thead><tr><th>Village</th><th>Mandal</th><th class="num">Parcels</th><th>Status</th><th class="num">Need attention</th><th class="num">Failed</th><th class="num">Area</th></tr></thead><tbody>
+    ${shown.map(v => `<tr class="click" data-vil="${esc(v.village)}" onclick="pf.q=this.dataset.vil;pf.state='all';location.hash='#parcels'"><td><b>${esc(v.village)}</b></td><td class="muted">${esc(v.mandal)}</td>
+      <td class="num tnum">${v.list.length}</td><td>${mini(v.list)}</td><td class="num tnum">${v.att || '<span class="faint">0</span>'}</td>
+      <td class="num tnum">${v.err || '<span class="faint">0</span>'}</td><td class="num tnum" style="white-space:nowrap">${fmtGuntas(v.area)}</td></tr>`).join('')}</tbody></table>
+    ${rows.length > 10 ? `<div class="more"><button class="btn btn-ghost btn-sm" onclick="villagesAll=!villagesAll;render(true)">${villagesAll ? 'Show fewer' : `Show all ${rows.length} villages`}</button></div>` : ''}</div></div>`;
+}
+
+// ---------- views ----------
+function noSheet(title) {
+  return `<div class="page-head"><div><h1 class="page">${title}</h1></div></div>
+    <div class="card empty"><div class="ic">${icon('sheet')}</div><h3>No land list yet</h3>
+      Add an Excel sheet of your survey numbers on the Land lists page. The first check starts as soon as it is added.
+      <div class="row-actions" style="justify-content:center"><a class="btn btn-ink btn-sm" href="#lists">${icon('up')}Add land list</a><a class="btn btn-sec btn-sm" href="/download/template">${icon('down')}Download template</a></div></div>`;
+}
+function renderOverview() {
+  if (!S.excel) return noSheet('Overview');
+  if (S.load_error) return `<div class="page-head"><h1 class="page">Overview</h1></div><div class="card empty"><h3>Your sheet could not be read</h3>${esc(S.load_error)}<div class="row-actions" style="justify-content:center"><a class="btn btn-ink btn-sm" href="#lists">Add a new sheet</a></div></div>`;
+  const P = S.parcels, n = P.length, att = P.filter(p => p.state === 'attention'), err = P.filter(p => p.state === 'error');
+  const checked = P.map(p => p.last_checked).filter(Boolean).sort().pop();
+  const villages = new Set(P.map(p => p.village + '|' + p.mandal)).size, mandals = new Set(P.map(p => p.mandal)).size;
+  const area = P.reduce((a, p) => a + p.extent_guntas, 0), nx = nextRun(), pr = S.progress;
+  const sub = S.running ? `Checking now: ${pr ? pr.done : 0} of ${pr ? pr.total : n} done.`
+    : checked ? `Last checked ${when(checked)}. ${nx ? `Next check ${nx}.` : 'Automatic checks are off.'}` : 'Not checked yet. Press Check now.';
+  const focus = [...att, ...err].slice(0, 8);
+  return `<div class="page-head"><div><h1 class="page">Overview</h1><p class="page-sub">${esc(sub)}</p></div></div>
+    ${S.email_ready ? '' : `<div class="slim">${icon('mail')}Email alerts are off, so changes only show here.<a href="#settings/email">Set up email</a></div>`}
+    <div class="kpis">
+      <a class="card kpi" href="#parcels"><span>Parcels watched</span><b>${n.toLocaleString()}</b><small>${plural(villages, 'village')}, ${plural(mandals, 'mandal')}</small></a>
+      <div class="card kpi"><span>Area watched</span><b>${Math.floor(area / 40).toLocaleString()} ac</b><small>and ${+(area % 40).toFixed(2)} gts, as on Bhu Bharati</small></div>
+      <a class="card kpi ${att.length ? 'bad' : ''}" href="#parcels/attention"><span>Need attention</span><b>${att.length.toLocaleString()}</b><small>warnings or mismatches</small></a>
+      <a class="card kpi ${err.length ? 'warn' : ''}" href="#parcels/error"><span>Check failed</span><b>${err.length.toLocaleString()}</b><small>site error or not found</small></a>
+      <a class="card kpi" href="#alerts"><span>New alerts</span><b>${S.unseen.toLocaleString()}</b><small>not yet marked as seen</small></a>
+    </div>
+    <div class="grid2">${healthCard(P)}${warningsCard(S.warnings)}</div>
+    <div class="grid2 wide-left">${alertsChartCard(S.daily)}${runsCard(S.runs)}</div>
+    <div class="grid2">
+      <div class="card"><div class="card-h"><div><h2>Needs a look</h2><p>${focus.length ? 'Open a parcel to compare your sheet with Bhu Bharati' : 'Nothing right now'}</p></div>
+        <span style="display:flex;gap:10px;align-items:center">${err.length ? recheckBtn(err.length) : ''}${att.length + err.length > 8 ? `<a href="#parcels/attention">All ${att.length + err.length}</a>` : ''}</span></div>
+        <div class="card-b">${focus.length ? focus.map(p => `<div class="list-row" ${openAttr(p.key)}><div><div class="sv">${esc(p.survey)}</div><div class="loc">${esc(p.village)}</div></div>
+          <div class="why">${reasons(p).map(esc).join('<br>')}</div><span class="chip ${p.state}">${LABEL[p.state]}</span></div>`).join('') : `<span class="muted">${checked ? 'Every parcel matches your sheet with no warnings.' : 'Results appear after the first check.'}</span>`}</div></div>
+      <div class="card"><div class="card-h"><div><h2>Latest alerts</h2><p>${S.unseen ? plural(S.unseen, 'new alert') : 'All caught up'}</p></div><a href="#alerts">All alerts</a></div>
+        <div class="card-b">${S.recent.length ? S.recent.map(e => `<div class="list-row" ${openAttr(e.key)} style="grid-template-columns:84px 1fr"><span class="kind ${e.kind}">${KIND[e.kind] || e.kind}</span>
+          <div><b>${esc(parcelName(e.key))}</b> <span class="muted">${when(e.ts)}</span><div class="why te">${esc(human(e.message))}</div></div></div>`).join('') : '<span class="muted">No alerts yet.</span>'}</div></div>
+    </div>
+    ${villagesCard(P)}`;
+}
+
+const recheckBtn = n => `<button class="btn btn-sec btn-sm" onclick="runNow({failed:true})" ${S.running ? 'disabled' : ''}>${icon('run')}Re-check ${n} failed</button>`;
+function renderParcels() {
+  if (!S.excel) return noSheet('Parcels');
+  const segs = [['all', 'All'], ['attention', 'Needs attention'], ['error', 'Failed'], ['ok', 'All clear'], ['pending', 'Not checked']];
+  const c = s => S.parcels.filter(p => s === 'all' || p.state === s).length;
+  return `<div class="page-head"><div><h1 class="page">Parcels</h1><p class="page-sub">Every survey number in <a href="#lists">${esc(S.excel.name)}</a> with what Bhu Bharati shows. Click one for the full record and its history.</p></div></div>
+    <div class="toolbar">
+      <label class="search">${icon('search')}<input id="q" placeholder="Survey no, village or owner" value="${esc(pf.q)}" oninput="pf.q=this.value;pf.shown=PAGE;fillParcels()"></label>
+      <div class="seg">${segs.map(([k, l]) => `<button class="${pf.state === k ? 'on' : ''}" onclick="pf.state='${k}';pf.shown=PAGE;render(true)">${l}<span>${c(k).toLocaleString()}</span></button>`).join('')}</div>
+      <select class="sel" onchange="pf.group=this.value;fillParcels()" aria-label="Group by">${[['village', 'Group by village'], ['mandal', 'Group by mandal'], ['none', 'No grouping']].map(([v, l]) => `<option value="${v}" ${pf.group === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      ${c('error') ? recheckBtn(c('error')) : ''}
+    </div>
+    <div class="legend">${[['attention', 'warning on the record, or differs from your sheet'], ['error', 'Bhu Bharati could not be read'], ['ok', 'matches your sheet, no warnings'], ['pending', 'not fetched yet']]
+      .map(([k, t]) => `<span><span class="chip ${k}">${LABEL[k]}</span>${t}</span>`).join('')}</div>
+    <div id="plist"></div>`;
+}
+function fillParcels() {
+  const q = pf.q.trim().toLowerCase();
+  const rows = S.parcels.filter(p => (pf.state === 'all' || p.state === pf.state) &&
+    (!q || [p.survey, p.village, p.mandal, p.district, p.owner, p.site_owner].join(' ').toLowerCase().includes(q)));
+  if (!rows.length) return $('#plist').innerHTML = `<div class="card empty"><h3>No parcels match</h3>Try a different search or status.</div>`;
+  const gk = p => pf.group === 'none' ? '' : pf.group === 'village' ? `${p.village}|${p.mandal}, ${p.district}` : `${p.mandal}|${p.district}`;
+  const shown = rows.slice(0, pf.shown), groups = {};
+  shown.forEach(p => (groups[gk(p)] ||= []).push(p));
+  const showVillage = pf.group !== 'village';
+  const head = `<tr><th>Survey no.</th>${showVillage ? '<th>Village</th>' : ''}<th>Status</th><th>Owner on Bhu Bharati</th><th>Extent</th><th>Land status</th><th>What to look at</th><th>Checked</th></tr>`;
+  const row = p => { const st = live(p), why = reasons(p);
+    return `<tr class="click prow ${st}" ${openAttr(p.key)} title="Open the full record"><td><span class="sv">${esc(p.survey)}</span></td>
+      ${showVillage ? `<td>${esc(p.village)}<div class="muted" style="font-size:11.5px">${esc(p.mandal)}</div></td>` : ''}
+      <td><span class="chip ${st}">${LABEL[st]}</span></td>
+      <td class="te owner-cell">${esc(p.site_owner) || `<span class="faint">${st === 'queued' ? 'Waiting for its turn' : 'Not fetched yet'}</span>`}</td>
+      <td class="tnum" style="white-space:nowrap">${esc(fmtExtent(p.site_extent)) || '<span class="faint">–</span>'}</td>
+      <td>${esc(p.land_status) || '<span class="faint">–</span>'}</td>
+      <td class="why-cell">${why.length ? why.map(esc).join('<br>') : '<span class="faint">–</span>'}</td>
+      <td class="muted" style="white-space:nowrap">${when(p.last_checked)}</td></tr>`; };
+  const body = list => `<div class="card tbl"><table class="ptable"><thead>${head}</thead><tbody>${list.map(row).join('')}</tbody></table></div>`;
+  $('#plist').innerHTML = Object.entries(groups).map(([k, list]) => {
+    if (!k) return body(list);
+    const [name, where] = k.split('|'), all = rows.filter(p => gk(p) === k);
+    const a = all.filter(p => p.state === 'attention').length, e = all.filter(p => p.state === 'error').length;
+    return `<section class="group"><div class="group-h"><b>${esc(name)}</b><span>${pf.group === 'mandal' ? 'mandal, ' : ''}${esc(where)}</span><span>${plural(all.length, 'parcel')}</span>
+      <span class="chips">${a ? `<span class="chip attention">${a} need attention</span>` : ''}${e ? `<span class="chip error">${e} failed</span>` : ''}</span></div>${body(list)}</section>`;
+  }).join('') + (rows.length > pf.shown ? `<div class="more"><button class="btn btn-sec btn-sm" onclick="pf.shown+=PAGE;fillParcels()">Show ${Math.min(PAGE, rows.length - pf.shown)} more of ${(rows.length - pf.shown).toLocaleString()}</button></div>` : '');
+}
+
+function renderAlerts() {
+  if (!S.excel) return noSheet('Alerts');
+  const kinds = [['', 'All'], ['CHANGE', 'Changes'], ['ISSUE', 'Issues'], ['ERROR', 'Failures']];
+  return `<div class="page-head"><div><h1 class="page">Alerts</h1><p class="page-sub">Everything the app has noticed, newest first. Changes are edits to a record since the last check. Issues are warnings or mismatches with your sheet. Failures are survey numbers that could not be read 3 times in a row.</p></div>
+      <button class="btn btn-sec btn-sm" onclick="markSeen({all:true})" ${S.unseen ? '' : 'disabled'}>${icon('check')}Mark all as seen</button></div>
+    <div class="toolbar">
+      <div class="seg">${kinds.map(([k, l]) => `<button class="${af.kind === k ? 'on' : ''}" onclick="af.kind='${k}';render(true)">${l}</button>`).join('')}</div>
+      <label class="search">${icon('search')}<input id="aq" placeholder="Survey no, village or text" value="${esc(af.q)}" oninput="af.q=this.value;clearTimeout(window._aq);window._aq=setTimeout(()=>loadAlerts(true),250)"></label>
+      <label class="switch check-new"><input type="checkbox" ${af.onlyNew ? 'checked' : ''} onchange="af.onlyNew=this.checked;loadAlerts(true)"><i></i>Only new</label>
+    </div><div id="alist"><div class="card empty">Loading…</div></div>`;
+}
+async function loadAlerts(reset) {
+  const qs = new URLSearchParams({kind: af.kind, q: af.q, new: af.onlyNew ? '1' : '', offset: reset ? 0 : af.items.length});
+  const r = await (await fetch('/api/events?' + qs)).json();
+  af.items = reset ? r.items : af.items.concat(r.items); af.total = r.total; af.ver = S.version;
+  if (view !== 'alerts' || !$('#alist')) return;
+  const byDay = {}; af.items.forEach(e => (byDay[e.ts.slice(0, 10)] ||= []).push(e));
+  const filtered = af.kind || af.q || af.onlyNew;
+  $('#alist').innerHTML = af.items.length ? Object.entries(byDay).map(([d, list]) => `<div class="day">${dayLabel(d)}</div>
+    <div class="card">${list.map(e => `<div class="ev ${e.seen ? 'seen' : ''}"><span class="nd" title="${e.seen ? '' : 'New'}"></span><time class="tnum">${e.ts.slice(11, 16)}</time><span class="kind ${e.kind}">${KIND[e.kind] || e.kind}</span>
+      <div><span class="who" ${openAttr(e.key)}>${esc(parcelName(e.key))}</span><div class="msg te">${esc(human(e.message))}</div></div>
+      ${e.seen ? '<span></span>' : `<button class="btn btn-ghost btn-sm" onclick="markSeen({ids:[${e.id}]})">Seen</button>`}</div>`).join('')}</div>`).join('')
+    + (af.items.length < af.total ? `<div class="more"><button class="btn btn-sec btn-sm" onclick="loadAlerts(false)">Load more (${(af.total - af.items.length).toLocaleString()} left)</button></div>` : '')
+    : `<div class="card empty"><h3>${filtered ? 'No alerts match' : 'No alerts yet'}</h3>${filtered ? 'Try a different filter.' : 'When a record changes on Bhu Bharati, or does not match your sheet, it shows up here.'}</div>`;
+}
+async function markSeen(body) {
+  await postJSON('/api/seen', body);
+  await poll(true); if (openKey) renderDrawer();
+}
+
+function renderSettings() {
+  return `<div class="page-head"><div><h1 class="page">Settings</h1><p class="page-sub">How the app checks and alerts. Saved in this folder on your computer; passwords are never shown again once saved. Your Excel sheets are on the <a href="#lists">Land lists</a> page.</p></div></div>
+    <div class="subnav">${[['email', 'Email alerts'], ['schedule', 'Automatic checks'], ['speed', 'Speed'], ['gsheet', 'Google Sheet'], ['storage', 'Files & storage']].map(([a, l]) => `<a href="#settings/${a}">${l}</a>`).join('')}</div>
+
+    <section class="set-grid" id="email"><div><h2>Email alerts</h2><p>One email per check, only when something changed. For Gmail, turn on 2-step verification and create an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">app password</a>; your normal password will not work.</p></div>
+      <div class="card set-body">
+        <div class="status-line">${S.email_ready ? '<span class="chip ok">On</span>' : '<span class="chip pending">Off</span>'}</div>
+        <div class="presets"><button class="btn btn-sec btn-sm" onclick="preset('smtp.gmail.com',587)">Gmail</button><button class="btn btn-sec btn-sm" onclick="preset('smtp.office365.com',587)">Outlook</button><button class="btn btn-sec btn-sm" onclick="preset('smtp.zoho.in',587)">Zoho</button></div>
+        <div class="form">
+          <label class="f">Mail server<input id="e_host" placeholder="smtp.gmail.com"></label>
+          <label class="f">Port<input id="e_port" inputmode="numeric" placeholder="587"></label>
+          <label class="f">Sign-in email<input id="e_user" type="email" autocomplete="off" placeholder="you@gmail.com"></label>
+          <label class="f">App password<input id="e_pass" type="password" autocomplete="new-password"></label>
+          <label class="f full">Send alerts to<input id="e_to" placeholder="you@gmail.com, partner@example.com"><small>Separate several addresses with commas.</small></label>
+        </div>
+        <div class="row-actions"><button class="btn btn-ink btn-sm" onclick="saveEmail()">Save email settings</button><button class="btn btn-sec btn-sm" onclick="testEmail(this)">${icon('mail')}Send test email</button></div>
+      </div></section>
+
+    <section class="set-grid" id="schedule"><div><h2>Automatic checks</h2><p>Checks run at these times while this app is open. Leave it off to check only when you press Check now.</p></div>
+      <div class="card set-body">
+        <label class="switch"><input type="checkbox" id="s_on" onchange="saveSchedule()"><i></i><span>Check automatically</span></label>
+        <div class="form" style="margin-top:14px"><label class="f full">Times (24-hour)<input id="s_times" placeholder="09:00, 14:00, 19:00" onchange="saveSchedule()"><small>Three checks a day is plenty; records rarely change faster.</small></label></div>
+      </div></section>
+
+    <section class="set-grid" id="speed"><div><h2>Speed</h2><p>More browsers check more parcels at once. Each one uses some memory, and the government site may slow down if pushed too hard.</p></div>
+      <div class="card set-body"><div class="form">
+        <label class="f">Browsers at once<select id="a_browsers">${[1, 2, 3, 4, 5, 6].map(v => `<option value="${v}">${v}${v === 3 ? ' (recommended)' : ''}</option>`).join('')}</select><small id="est"></small></label>
+        <label class="f">Pause after each parcel (seconds)<input id="a_delay" inputmode="decimal"><small>Keeps the load on the site low.</small></label>
+        <label class="f">2Captcha key<input id="a_cap" type="password" autocomplete="new-password"><small>Optional paid fallback if the built-in captcha reader fails 5 times.</small></label>
+        <label class="switch" style="align-self:end;padding-bottom:20px"><input type="checkbox" id="a_show"><i></i><span>Show the browsers while checking</span></label>
+      </div><div class="row-actions"><button class="btn btn-ink btn-sm" onclick="saveAdvanced()">Save</button></div></div></section>
+
+    <section class="set-grid" id="gsheet"><div><h2>Google Sheet</h2><p>Optional. Copies the results into a Google Sheet you own after every check. Setup steps are in README.md under "Google Sheet".</p></div>
+      <div class="card set-body">
+        <div class="status-line">${S.sheet_ready ? '<span class="chip ok">Connected</span>' : '<span class="chip pending">Not connected</span>'}</div>
+        <div class="form"><label class="f full">Web app URL<input id="g_url" placeholder="https://script.google.com/macros/s/…/exec"></label>
+          <label class="f full">Secret phrase<input id="g_token" type="password" autocomplete="new-password"><small>Same value as TOKEN in the Apps Script.</small></label></div>
+        <div class="row-actions"><button class="btn btn-ink btn-sm" onclick="saveSheet()">Save</button></div>
+      </div></section>
+
+    <section class="set-grid" id="storage"><div><h2>Files & storage</h2><p>Where the app keeps things on this computer. Back up the whole folder to keep your history.</p></div>
+      <div class="card set-body"><div id="storeList"><span class="muted">Loading…</span></div>
+        <div class="danger"><div><b>Clear check history</b>Deletes all saved records, alerts and past checks. Your uploaded sheets and settings stay. The next check starts fresh.</div>
+          <button class="btn btn-danger btn-sm" onclick="clearHistory()">Clear history</button></div></div></section>`;
+}
+async function loadSettingsData() {
+  const st = await (await fetch('/api/storage')).json();
+  const kb = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+  if ($('#storeList')) $('#storeList').innerHTML = `<div class="path" style="margin-bottom:14px">App folder: ${esc(st.root)}</div>` + st.items.map(i => `<div class="store"><div><b>${esc(i.label)}</b> <span class="muted">${kb(i.size)}</span>
+      <div class="note">${esc(i.note)}</div><div class="path">${esc(i.path)}</div></div>
+      <button class="btn btn-sec btn-sm" onclick="openFolder('${i.id}')">${icon('folder')}Open folder</button></div>`).join('');
+}
+
+function renderLists() {
+  if (sheetFile) return renderSheet();
+  return `<div class="page-head"><div><h1 class="page">Land lists</h1><p class="page-sub">Every Excel sheet you have added, kept in data/uploads. The list in use is the one that gets checked. Sheets with the same file name are shown as versions of one list.</p></div>
+      <a class="btn btn-sec btn-sm" href="/download/template">${icon('down')}Blank template</a></div>
+    <div class="drop compact" tabindex="0" role="button" aria-label="Add an Excel sheet"><div class="ic">${icon('up')}</div><div><b>Drop an Excel sheet here, or click to choose</b><span>It becomes the list in use and a check starts straight away. Columns: District, Mandal, Village, Survey No, and optionally Expected Owner Name, Expected Extent (Acres), (Guntas), Alert On.</span></div></div>
+    <div class="sub-h" style="margin-top:26px">Your lists</div><div id="lists" class="lists"><div class="card empty">Loading…</div></div>`;
+}
+async function loadLists() {
+  const sh = await (await fetch('/api/sheets')).json();
+  if (view !== 'lists' || sheetFile || !$('#lists')) return;
+  if (!sh.length) return $('#lists').innerHTML = `<div class="card empty"><div class="ic">${icon('sheet')}</div><h3>No lists yet</h3>Drop an Excel sheet above to start.</div>`;
+  const groups = {};
+  sh.forEach(f => (groups[f.name] ||= []).push(f));                 // newest first within each name
+  const ordered = Object.values(groups).sort((a, b) => b.some(f => f.active) - a.some(f => f.active) || b[0].uploaded.localeCompare(a[0].uploaded));
+  const acts = f => `<a class="btn btn-sec btn-sm" href="#lists/${encodeURIComponent(f.file)}">View</a>
+      ${f.active ? '' : `<button class="btn btn-sec btn-sm" data-f="${esc(f.file)}" onclick="useSheet(this.dataset.f)">Use this</button>`}
+      <a class="btn btn-ghost btn-sm" href="/download/sheet?file=${encodeURIComponent(f.file)}" title="Download" aria-label="Download">${icon('down')}</a>
+      ${f.active ? '' : `<button class="btn btn-ghost btn-sm" data-f="${esc(f.file)}" onclick="deleteSheet(this.dataset.f)" title="Delete" aria-label="Delete">${icon('x')}</button>`}`;
+  $('#lists').innerHTML = ordered.map(vs => {
+    const top = vs.find(f => f.active) || vs[0];
+    return `<div class="card list-card"><div class="lc-head"><span class="lc-ic ${top.active ? 'on' : ''}">${icon('sheet')}</span>
+      <div class="lc-main"><b>${esc(top.name)}${top.active ? '<span class="chip ok">In use</span>' : ''}${vs.length > 1 ? `<span class="chip plain pending">${vs.length} versions</span>` : ''}</b>
+        <div class="lc-meta">${plural(top.rows, 'survey number')} in ${plural(top.villages, 'village')}, ${plural(top.mandals || 1, 'mandal')}. Uploaded ${when(top.uploaded)}.</div></div>
+      <div class="lc-act">${acts(top)}</div></div>
+      ${vs.length > 1 ? `<details class="versions"><summary>All ${vs.length} versions</summary><table><thead><tr><th>Uploaded</th><th class="num">Survey nos</th><th class="num">Villages</th><th></th><th></th></tr></thead><tbody>
+        ${vs.map(f => `<tr><td style="white-space:nowrap">${when(f.uploaded)}</td><td class="num tnum">${f.rows.toLocaleString()}</td><td class="num tnum">${f.villages}</td>
+          <td>${f.active ? '<span class="chip ok">In use</span>' : ''}</td><td style="white-space:nowrap;text-align:right">${acts(f)}</td></tr>`).join('')}</tbody></table></details>` : ''}</div>`;
+  }).join('');
+}
+function renderSheet() {
+  return `<a class="back" href="#lists">← All land lists</a><div id="sheetView"><div class="card empty">Loading…</div></div>`;
+}
+async function loadSheet() {
+  const d = await (await fetch('/api/sheet?file=' + encodeURIComponent(sheetFile))).json();
+  if (view !== 'lists' || !$('#sheetView')) return;
+  if (d.error) return $('#sheetView').innerHTML = `<div class="card empty"><h3>${esc(d.error)}</h3></div>`;
+  const m = d.meta, byKey = Object.fromEntries(S.parcels.map(p => [p.key, p]));
+  const villages = new Set(d.rows.filter(r => r.village).map(r => r.village + '|' + r.mandal)).size, mandals = new Set(d.rows.filter(r => r.mandal).map(r => r.mandal)).size;
+  const first = {}; d.rows.forEach(r => { if (first[r.key]) r.dupOf = first[r.key]; else first[r.key] = r.row; });
+  sheetRows = d.rows; sheetActive = !!m.active; sheetByKey = byKey;
+  $('#sheetView').innerHTML = `<div class="page-head"><div><h1 class="page">${esc(m.name)}</h1>
+      <p class="page-sub">${plural(d.rows.length, 'row')}, ${plural(villages, 'village')}, ${plural(mandals, 'mandal')}. Uploaded ${when(m.uploaded)}.${m.active ? ' This is the list in use.' : ''}</p></div>
+      <div class="lc-act">${m.active ? '<span class="chip ok">In use</span>' : `<button class="btn btn-ink btn-sm" data-f="${esc(m.file)}" onclick="useSheet(this.dataset.f)">Use this list</button>`}
+        <a class="btn btn-sec btn-sm" href="/download/sheet?file=${encodeURIComponent(m.file)}">${icon('down')}Download</a></div></div>
+    ${d.issue_count ? `<div class="card" style="margin-bottom:12px"><div class="card-h"><div><h2>Things to fix in this sheet</h2><p>${plural(d.issue_count, 'problem')} found. Fix them in Excel and drop the sheet again.</p></div></div>
+      <div class="card-b"><ul class="issues">${d.issues.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div></div>` : ''}
+    ${d.diff ? `<div class="card" style="margin-bottom:12px"><div class="card-h"><div><h2>Compared with the list in use</h2><p>${d.diff.added_count || d.diff.removed_count ? 'Survey numbers that differ' : 'Same survey numbers as the list in use'}</p></div></div>
+      ${d.diff.added_count || d.diff.removed_count ? `<div class="card-b diffbox"><div><h4>${plural(d.diff.added_count, 'survey number')} only in this sheet</h4><div>${d.diff.added.map(esc).join('<br>') || '<span class="faint">None</span>'}</div></div>
+        <div><h4>${plural(d.diff.removed_count, 'survey number')} only in the list in use</h4><div>${d.diff.removed.map(esc).join('<br>') || '<span class="faint">None</span>'}</div></div></div>` : ''}</div>` : ''}
+    <div class="toolbar"><label class="search">${icon('search')}<input id="sq" placeholder="Survey no or village" value="${esc(lf.q)}" oninput="lf.q=this.value;lf.shown=100;fillSheet()"></label></div>
+    <div class="card tbl" id="sheetTable"></div>`;
+  fillSheet();
+}
+let sheetRows = [], sheetActive = false, sheetByKey = {};
+function fillSheet() {
+  const q = lf.q.trim().toLowerCase();
+  const rows = sheetRows.filter(r => !q || [r.survey, r.village, r.mandal, r.owner].join(' ').toLowerCase().includes(q));
+  $('#sheetTable').innerHTML = `<table><thead><tr><th class="num">Row</th><th>District</th><th>Mandal</th><th>Village</th><th>Survey no.</th><th>Expected owner</th><th>Expected extent</th><th>Alert on</th>${sheetActive ? '<th>Status</th>' : ''}</tr></thead><tbody>
+    ${rows.slice(0, lf.shown).map(r => { const p = sheetByKey[r.key];
+      return `<tr ${sheetActive && p ? `class="click" ${openAttr(r.key)}` : ''}><td class="num tnum muted">${r.row}</td><td>${esc(r.district)}</td><td>${esc(r.mandal)}</td><td>${esc(r.village)}</td>
+        <td><span class="sv">${esc(r.survey)}</span></td><td class="te">${esc(r.owner) || '<span class="faint">–</span>'}</td><td style="white-space:nowrap">${esc(fmtExpected(r)) || '<span class="faint">–</span>'}</td>
+        <td>${esc(r.alert_on) || '<span class="faint">Any change</span>'}</td>${sheetActive ? `<td>${r.dupOf ? `<span class="muted" style="font-size:12px">Duplicate of row ${r.dupOf}</span>` : p ? `<span class="chip ${live(p)}">${LABEL[live(p)]}</span>` : ''}</td>` : ''}</tr>`; }).join('')}</tbody></table>
+    ${rows.length > lf.shown ? `<div class="more" style="padding:12px"><button class="btn btn-sec btn-sm" onclick="lf.shown+=100;fillSheet()">Show ${Math.min(100, rows.length - lf.shown)} more of ${(rows.length - lf.shown).toLocaleString()}</button></div>` : ''}
+    ${!rows.length ? '<div class="empty">No rows match.</div>' : ''}`;
+}
+
+function renderHelp() {
+  return `<div class="help"><h1 class="page">Help</h1>
+    <p class="page-sub">What the app does, and what each page is for.</p>
+    <div class="card"><h2>What it does</h2>
+      <p>Checking land records on Bhu Bharati by hand means picking district, mandal, village and survey number, then typing a captcha, for every parcel. This app does that for you, several parcels at a time, and remembers what it saw. When a record changes, or does not match your own list, it tells you.</p></div>
+    <div class="card"><h2>The pages</h2><dl>
+      <dt>Overview</dt><dd>The dashboard: totals, parcel health, warnings found, alerts over time, recent checks, and a summary by village.</dd>
+      <dt>Parcels</dt><dd>Every survey number, grouped by village or mandal, as tiles or a table. Search and filter by status. Click one for its full record, or to check just that parcel again. Re-check failed retries only the ones that failed.</dd>
+      <dt>Alerts</dt><dd>Everything noticed, newest first. Mark alerts as seen to clear the count in the sidebar.</dd>
+      <dt>Land lists</dt><dd>Every Excel sheet you have added, grouped by file name with all versions. Open one to see its rows, problems in the sheet, and how it differs from the list in use.</dd>
+      <dt>Settings</dt><dd>Email, automatic checks, speed, Google Sheet, and where files are stored.</dd>
+      <dt>Check now</dt><dd>Top right. Checks every parcel on Bhu Bharati. While it runs the button turns into Stop.</dd>
+      <dt>Report</dt><dd>Top right. Downloads an Excel file with the latest record of every parcel and the full history.</dd></dl></div>
+    <div class="card"><h2>What gets checked</h2><ul>
+      <li><b>Owner name</b> against your sheet. Bhu Bharati shows names in Telugu; English names in your sheet are matched approximately.</li>
+      <li><b>Extent</b> against the acres and guntas in your sheet.</li>
+      <li><b>Warnings</b> on the record: pending transaction, prohibited land, not digitally signed, NALA (non-agricultural).</li>
+      <li><b>Any other change</b> since the last check, or only the fields in the sheet's Alert On column.</li></ul></div>
+    <div class="card"><h2>When you get an email</h2><ul>
+      <li>After a check, if anything above is new. One email lists everything.</li>
+      <li>If a survey number fails 3 checks in a row, for example because it was typed wrong or the site is down.</li>
+      <li>Nothing changed means no email.</li></ul></div></div>`;
+}
+
+// ---------- drawer ----------
+function openDrawer(key) {
+  openKey = key; $('#drawer').classList.add('open'); $('#scrim').classList.add('on');
+  $('#drawer').innerHTML = '<div class="dr-sec muted">Loading…</div>'; renderDrawer();
+}
+function closeDrawer() { openKey = null; $('#drawer').classList.remove('open'); $('#scrim').classList.remove('on'); }
+async function renderDrawer() {
+  const key = openKey, p = S.parcels.find(p => p.key === key); if (!p) return closeDrawer();
+  const d = await (await fetch('/api/parcel?key=' + encodeURIComponent(key))).json(); if (openKey !== key) return;
+  const chk = (title, res, exp, site) => { const cls = !res ? 'na' : res === 'OK' ? 'ok' : 'bad';
+    return `<div class="check"><span class="mk ${cls}">${cls === 'ok' ? '✓' : cls === 'bad' ? '!' : '–'}</span><div><b>${title}${cls === 'ok' ? ' matches' : cls === 'bad' ? ' does not match' : ''}</b>
+      ${res ? `<div class="cmp"><span>Your sheet</span><span>${esc(exp)}</span><span>Bhu Bharati</span><span class="te">${esc(site)}</span></div>` : `<div class="cmp"><span>${p.last_ok ? 'Not in your sheet, so not compared.' : 'Not checked yet.'}</span></div>`}</div></div>`; };
+  const fields = Object.entries(d.data).filter(([k]) => !['District', 'Mandal', 'Village'].includes(k));
+  const unseen = d.events.filter(e => !e.seen && e.kind !== 'BASELINE');
+  $('#drawer').innerHTML = `
+    <div class="dr-head"><button class="btn btn-ghost btn-sm x" onclick="closeDrawer()" aria-label="Close">${icon('x')}</button>
+      <div class="muted" style="font-size:12px">${esc(p.village)}, ${esc(p.mandal)}, ${esc(p.district)}</div>
+      <div class="sv">${esc(p.survey)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="chip ${live(p)}">${LABEL[live(p)]}</span><span class="muted" style="font-size:12px">Checked ${when(p.last_checked)}</span>
+        <button class="btn btn-sec btn-sm" style="margin-left:auto" data-k="${esc(p.key)}" onclick="runNow({keys:[this.dataset.k]})" ${S.running ? 'disabled' : ''}>${icon('run')}Check this parcel</button></div></div>
+    ${p.fails ? `<div class="dr-sec"><div class="err-box"><b>Last check failed ${p.fails} time${p.fails > 1 ? 's' : ''} in a row.</b> ${esc(p.last_error)}${p.last_ok ? `<br>The record below is from ${when(p.last_ok)}.` : ''}</div></div>` : ''}
+    <div class="dr-sec"><h3>Compared with your sheet</h3>
+      ${chk('Owner', p.owner_check, p.owner, d.data['Pattadar / Authorised Person Name'] || '')}
+      ${chk('Extent', p.extent_check, fmtExpected(p), `${fmtExtent(p.site_extent)} (${p.site_extent || '–'})`)}
+      <div class="check"><span class="mk ${p.flags === 'None' ? 'ok' : p.flags ? 'bad' : 'na'}">${p.flags === 'None' ? '✓' : p.flags ? '!' : '–'}</span><div><b>${p.flags === 'None' ? 'No warnings on the record' : p.flags ? 'Warnings on the record' : 'Warnings'}</b>
+        <div class="cmp"><span>${esc(p.flags && p.flags !== 'None' ? p.flags : 'Pending transactions, prohibition, missing digital signature and NALA are checked.')}</span></div></div></div></div>
+    <div class="dr-sec"><h3>Record on Bhu Bharati</h3>${fields.length ? `<dl class="kv">${fields.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="te">${esc(v)}</dd>`).join('')}</dl>` : '<span class="muted">Nothing fetched yet.</span>'}</div>
+    <div class="dr-sec"><h3>Alerts for</h3><div style="font-size:13px">${p.alert_on ? esc(p.alert_on) + '<div class="muted" style="font-size:12px">plus warnings and mismatches, always</div>' : 'Any change to this record'}</div></div>
+    <div class="dr-sec" style="border:0"><h3 style="display:flex;justify-content:space-between;align-items:center">History${unseen.length ? `<button class="btn btn-ghost btn-sm" onclick="markSeen({ids:[${unseen.map(e => e.id)}]})">Mark ${unseen.length} as seen</button>` : ''}</h3>
+      ${d.events.length ? `<ul class="hist">${d.events.map(e => `<li class="${e.kind}"><time>${when(e.ts)}${!e.seen && e.kind !== 'BASELINE' ? ', new' : ''}</time>${esc(e.kind === 'BASELINE' ? 'Started watching this parcel' : human(e.message))}</li>`).join('')}</ul>` : '<span class="muted">No history yet.</span>'}</div>`;
+}
+
+// ---------- settings actions ----------
+async function loadCfg() {
+  const c = await (await fetch('/api/config')).json(), e = c.email || {}, g = c.google_sheet || {}, s = c.schedule || {};
+  const set = (id, v) => { const el = $('#' + id); if (el) el.value = v ?? ''; };
+  if (!$('#e_host')) return;
+  set('e_host', e.smtp_host); set('e_port', e.smtp_port); set('e_user', e.username); set('e_to', Array.isArray(e.to) ? e.to.join(', ') : e.to);
+  $('#e_pass').placeholder = e.password_set ? 'Saved. Leave blank to keep it' : '16-character app password';
+  set('g_url', g.web_app_url); $('#g_token').placeholder = g.token_set ? 'Saved. Leave blank to keep it' : '';
+  $('#s_on').checked = !!s.enabled; set('s_times', (s.times || []).join(', '));
+  set('a_delay', c.delay_between_checks_sec ?? 1); set('a_browsers', c.parallel_browsers || 3); $('#a_show').checked = !!c.show_browser;
+  $('#a_cap').placeholder = c.twocaptcha_api_key_set ? 'Saved. Leave blank to keep it' : 'Not set';
+  const est = () => { const n = S.parcels.length, b = +$('#a_browsers').value; $('#est').textContent = n ? `About ${dur(Math.max(15, n * 5.5 / b))} for your ${plural(n, 'parcel')}.` : ''; };
+  $('#a_browsers').onchange = est; est();
+}
+const val = id => $('#' + id).value.trim();
+async function postJSON(url, body) { return (await fetch(url, {method: 'POST', body: JSON.stringify(body || {})})).json(); }
+async function saveCfg(body, msg) {
+  const r = await postJSON('/api/config', body);
+  toast(r.ok ? msg : 'Could not save settings', !r.ok); poll(true);
+}
+function preset(h, p) { $('#e_host').value = h; $('#e_port').value = p; }
+function saveEmail() { saveCfg({email: {smtp_host: val('e_host'), smtp_port: +val('e_port') || 587, username: val('e_user'), password: val('e_pass'), to: val('e_to')}}, 'Email settings saved'); $('#e_pass').value = ''; }
+async function testEmail(b) { b.disabled = true; const r = await postJSON('/api/test-email'); b.disabled = false; toast(r.ok ? 'Test email sent. Check your inbox.' : `Email failed: ${r.error}`, !r.ok); }
+function saveSchedule() {
+  const times = val('s_times'), bad = times.split(',').map(t => t.trim()).filter(t => t && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t));
+  if (bad.length) return toast(`Use 24-hour times like 09:00. Not valid: ${bad.join(', ')}`, true);
+  saveCfg({schedule: {enabled: $('#s_on').checked, times}}, $('#s_on').checked ? 'Automatic checks are on' : 'Automatic checks are off');
+}
+function saveSheet() { saveCfg({google_sheet: {web_app_url: val('g_url'), token: val('g_token')}}, 'Google Sheet settings saved'); $('#g_token').value = ''; }
+function saveAdvanced() { saveCfg({parallel_browsers: +val('a_browsers') || 3, delay_between_checks_sec: +val('a_delay') || 0, twocaptcha_api_key: val('a_cap'), show_browser: $('#a_show').checked}, 'Speed settings saved'); $('#a_cap').value = ''; }
+async function useSheet(f) { const r = await postJSON('/api/sheets/activate', {file: f}); toast(r.ok ? 'This list is now in use. Press Check now to fetch any parcels not checked before.' : r.error, !r.ok); await poll(true); }
+async function deleteSheet(f) {
+  if (!confirm('Delete this uploaded sheet? Check history for its parcels is kept.')) return;
+  const r = await postJSON('/api/sheets/delete', {file: f}); toast(r.ok ? 'Sheet deleted' : r.error, !r.ok);
+  if (r.ok && sheetFile === f) location.hash = '#lists'; else render(true);
+}
+async function openFolder(w) { await postJSON('/api/open', {which: w}); }
+async function clearHistory() {
+  if (!confirm('Delete all saved records, alerts and past checks? This cannot be undone.')) return;
+  const r = await postJSON('/api/clear-history', {confirm: 'yes'}); toast(r.ok ? 'History cleared' : (r.error || 'Could not clear history'), !r.ok); await poll(true);
+}
+function bindDrop() {
+  document.querySelectorAll('.drop').forEach(d => {
+    if (d.bound) return; d.bound = true;
+    d.onclick = () => $('#filePick').click();
+    d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#filePick').click(); } };
+    d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
+    d.ondragleave = () => d.classList.remove('over');
+    d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); };
+  });
+}
+$('#filePick').onchange = e => { if (e.target.files[0]) upload(e.target.files[0]); e.target.value = ''; };
+async function upload(file) {
+  toast(`Reading ${file.name}…`);
+  const r = await (await fetch('/api/upload', {method: 'POST', headers: {'X-Filename': encodeURIComponent(file.name)}, body: file})).json();
+  if (!r.ok) return toast(r.error, true);
+  toast(`Added ${plural(r.rows, 'survey number')} from ${plural(r.villages, 'village')}. ` + (r.started ? 'Checking them on Bhu Bharati now.' : 'A check is already running; press Check now when it finishes.'));
+  pf.q = ''; pf.state = 'all'; location.hash = '#parcels'; poll(true);
+}
+
+// ---------- shell ----------
+function toast(msg, bad) {
+  const t = document.createElement('div'); t.className = 'toast' + (bad ? ' bad' : ''); t.textContent = msg;
+  $('#toasts').append(t); setTimeout(() => t.remove(), bad ? 7000 : 4500);
+}
+async function runNow(opts) {
+  const r = await postJSON('/api/run', opts || {});
+  toast(r.started ? (r.count ? `Checking ${plural(r.count, 'parcel')} on Bhu Bharati.` : 'Checking Bhu Bharati. You can keep using the app.') : r.error, !r.started);
+  poll();
+}
+async function stopNow() {
+  if (!confirm('Stop the check? Parcels already checked keep their new results; the rest keep their previous ones.')) return;
+  const r = await postJSON('/api/stop'); if (!r.ok) toast(r.error, true); poll(true);
+}
+function renderRun() {
+  const p = S.progress, on = S.running, b = $('#btnRun');
+  $('#run').classList.toggle('on', on); $('#runBar').hidden = !on;
+  b.className = on ? 'btn btn-danger' : 'btn btn-ink';
+  b.innerHTML = on ? `${icon('x')}${S.stopping ? 'Stopping…' : 'Stop'}` : `${icon('run')}Check now`;
+  b.disabled = on ? !!S.stopping : !S.excel;
+  b.title = on ? 'Stop after the parcels being checked right now' : S.excel ? '' : 'Add your land list first';
+  if (on && S.stopping) $('#runText').textContent = 'Stopping…';
+  else if (on && p && p.total) { $('#runText').textContent = `Checked ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`; $('#runBar').firstChild.style.width = (p.done / p.total * 100) + '%'; }
+  else if (on) $('#runText').textContent = 'Starting browsers…';
+  else $('#runText').textContent = S.last_run ? `Last run ${when(S.last_run)}` : 'Idle';
+  $('#navAlerts').hidden = !S.unseen; $('#navAlerts').textContent = S.unseen > 99 ? '99+' : S.unseen;
+}
+function render(force) {
+  document.querySelectorAll('[data-v]').forEach(a => a.classList.toggle('active', a.dataset.v === view));
+  $('#crumb').textContent = {overview: 'Overview', parcels: 'Parcels', alerts: 'Alerts', lists: 'Land lists', settings: 'Settings', help: 'Help'}[view];
+  if (view === 'settings' && cfgLoaded && !force) { loadSettingsData(); return; }   // keep what the user is typing
+  if (view === 'alerts' && !force && $('#alist')) { if (af.ver !== S.version) loadAlerts(true); return; }
+  if (view === 'help' && !force && $('.help')) return;
+  if (view === 'lists' && !force && $('#lists, #sheetView')) { sheetFile ? (sheetActive && fillSheet()) : loadLists(); return; }
+  const focusId = document.activeElement?.id, caret = document.activeElement?.selectionStart;
+  try {
+    $('#view').innerHTML = {overview: renderOverview, parcels: renderParcels, alerts: renderAlerts, lists: renderLists, settings: renderSettings, help: renderHelp}[view]();
+    if (view === 'parcels' && S.excel) fillParcels();
+  } catch (e) {
+    console.error(e);
+    $('#view').innerHTML = `<div class="card empty"><h3>This page could not be shown</h3>${esc(e.message)}<br>Restart the app (Ctrl+C in its terminal, then start it again). If it keeps happening, the app files are out of step with each other.</div>`;
+  }
+  if (view === 'alerts' && S.excel && $('#alist')) loadAlerts(true);
+  if (view === 'lists') sheetFile ? loadSheet() : loadLists();
+  if (view === 'settings') { cfgLoaded = true; loadCfg(); loadSettingsData(); }
+  if (focusId && $('#' + focusId)?.setSelectionRange) { const i = $('#' + focusId); i.focus(); try { i.setSelectionRange(caret, caret); } catch {} }
+  bindDrop();
+  if (anchor) { const el = document.getElementById(anchor); anchor = null; if (el) setTimeout(() => el.scrollIntoView({behavior: 'smooth', block: 'start'}), 60); }
+}
+async function poll(force) {
+  let s;
+  try { s = await (await fetch('/api/state' + (S && !force ? '?v=' + encodeURIComponent(S.version) : ''))).json(); }
+  catch { $('#runText').textContent = 'App stopped'; return; }
+  if (s.same) return;
+  const wasRunning = S && S.running; S = s;
+  if (wasRunning && !s.running) {
+    const r = s.last_result || {};
+    (r.errors || []).forEach(e => toast(e, true));
+    if (r.stopped) toast(`Check stopped: ${r.checked.toLocaleString()} of ${plural(r.total, 'parcel')} checked, ${plural(r.alerts, 'new alert')}.`);
+    else if (r.checked != null) toast(`Check finished in ${dur(r.seconds || 0)}: ${plural(r.checked, 'parcel')}, ${r.failed ? r.failed + ' failed, ' : ''}${plural(r.alerts, 'new alert')}.`);
+  }
+  renderRun(); render(force);
+  if (openKey) renderDrawer();
+}
+function route() {
+  const h = location.hash.slice(1) || 'overview', i = h.indexOf('/');
+  view = i < 0 ? h : h.slice(0, i); const rest = i < 0 ? '' : decodeURIComponent(h.slice(i + 1));
+  if (!['overview', 'parcels', 'alerts', 'lists', 'settings', 'help'].includes(view)) view = 'overview';
+  sheetFile = view === 'lists' && rest ? rest : null; if (sheetFile) { lf.q = ''; lf.shown = 100; }
+  if (view === 'parcels' && rest) { pf.state = rest; pf.shown = PAGE; } else if (view !== 'lists') anchor = rest || null;
+  cfgLoaded = false; side.classList.remove('open'); window.scrollTo(0, 0); if (S) render(true);
+}
+// one tooltip for every chart mark carrying data-tip
+document.addEventListener('mousemove', e => {
+  const t = e.target.closest && e.target.closest('[data-tip]'), tip = $('#tip');
+  if (!t) { tip.style.opacity = 0; return; }
+  tip.textContent = t.dataset.tip; tip.style.opacity = 1;
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 16) + 'px';
+});
+addEventListener('hashchange', route);
+addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+const side = $('#side');
+route(); poll(true); setInterval(poll, 1500);
+</script>
+</body>
+</html>

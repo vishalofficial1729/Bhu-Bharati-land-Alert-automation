@@ -1,0 +1,10 @@
+# Python environment
+.venv/
+__pycache__/
+
+# Your own data and settings: never commit these
+config.json
+data/
+output/
+
+.DS_Store

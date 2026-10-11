@@ -1,0 +1,28 @@
+{
+  "excel_path": "",
+
+  "email": {
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587,
+    "username": "",
+    "password": "",
+    "from": "",
+    "to": []
+  },
+
+  "schedule": {
+    "enabled": false,
+    "times": ["09:00", "14:00", "19:00"]
+  },
+
+  "google_sheet": {
+    "web_app_url": "",
+    "token": ""
+  },
+
+  "twocaptcha_api_key": "",
+  "parallel_browsers": 3,
+  "delay_between_checks_sec": 1,
+  "show_browser": false,
+  "port": 8765
+}
